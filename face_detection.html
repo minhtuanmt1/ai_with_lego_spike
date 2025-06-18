@@ -1,342 +1,260 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white; /* optional */
-        }
+  <meta charset="utf-8">
+  <title>Face Detection with SPIKE</title>
 
-        .container {
-            position: relative;
-            width: 1280px;
-            height: 720px;
-        }
+  <!-- Mediapipe Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
-        video, canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
 
-        .input_video {
-            display: none;
-        }
+    .container {
+      position: relative;
+      width: 100%;
+      max-width: 1280px;
+      aspect-ratio: 16 / 9;
+    }
 
-        #dataDisplay {
-            width: 600px; /* Fixed width */
-            height: 100px; /* Optional fixed height */
-            margin-top: 12px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            font-family: monospace;
-            font-size: 20px;
-            border-radius: 8px;
-            z-index: 1;
-            /* Center horizontally */
-            position: relative;
-        }
-    </style>
+    video, canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      pointer-events: none; /* allows clicks to pass through */
+    }
+
+    .input_video {
+      display: none;
+    }
+
+    #dataDisplay {
+      width: 90%;
+      max-width: 600px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      font-family: monospace;
+      font-size: 16px;
+      border-radius: 8px;
+      margin: 12px auto;
+      text-align: left;
+    }
+
+    .controls {
+      margin: 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    button {
+      font-size: 16px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:active {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container">
-        <video class="input_video" autoplay muted playsinline></video>
-        <canvas class="output_canvas" width="1280" height="720"></canvas>
-    </div>
-    <div id="dataDisplay">Awaiting data...</div>
+  <div class="container">
+    <video class="input_video" autoplay muted playsinline></video>
+    <canvas class="output_canvas" width="1280" height="720"></canvas>
+  </div>
+
+  <div id="dataDisplay">Awaiting data...</div>
+
+  <div class="controls">
     <button id="startBtn">Start Camera</button>
     <button id="connectBtn">Connect to SPIKE Hub</button>
     <button id="fwdBtn">Forward</button>
     <button id="revBtn">Reverse</button>
     <button id="stopBtn">Stop</button>
-    <script type="module">
-        const videoElement = document.querySelector('.input_video');
-        const canvasElement = document.querySelector('.output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const PYBRICKS_COMMAND_EVENT_CHAR_UUID = 'c5f50002-8280-46da-89f4-6d8051e4aeef';
-        const SERVICE_UUID = 'c5f50001-8280-46da-89f4-6d8051e4aeef';
-        const HUB_NAME = 'young_engineer';
-        let device;
-        let server;
-        let commandChar;
-        let lastSentX = null;
-        let lastSentTime = 0;
-        const SEND_INTERVAL_MS = 200;
+  </div>
 
-        async function connectToHub() {
-            try {
-                console.log('Requesting LEGO SPIKE hub...');
+  <script type="module">
+    const videoElement = document.querySelector('.input_video');
+    const canvasElement = document.querySelector('.output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
 
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: HUB_NAME }],
-                    optionalServices: [SERVICE_UUID]
-                });
+    const HUB_NAME = 'young_engineer';
+    const SERVICE_UUID = 'c5f50001-8280-46da-89f4-6d8051e4aeef';
+    const PYBRICKS_COMMAND_EVENT_CHAR_UUID = 'c5f50002-8280-46da-89f4-6d8051e4aeef';
 
-                device.addEventListener('gattserverdisconnected', onDisconnected);
+    let device, server, commandChar;
+    let lastSentX = null;
+    let lastSentTime = 0;
+    const SEND_INTERVAL_MS = 200;
 
-                server = await device.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                commandChar = await service.getCharacteristic(PYBRICKS_COMMAND_EVENT_CHAR_UUID);
-
-                console.log('Connected to hub!');
-                //labelContainer.childNodes[maxPredictions + 1].innerHTML = "Connected with SPIKE Hub via bluetooth";
-
-                // Start notifications (optional, if expecting hub responses)
-                await commandChar.startNotifications();
-                commandChar.addEventListener('characteristicvaluechanged', handleNotification);
-
-            } catch (error) {
-                console.error('Error connecting to hub:', error);
-                //labelContainer.childNodes[maxPredictions + 1].innerHTML = "Connect failed" + error;
-            }
-        }
-
-        function onDisconnected() {
-            console.log('Hub was disconnected.');
-            //labelContainer.childNodes[maxPredictions + 1].innerHTML = "SPIKE Hub disconnected";
-        }
-
-        function handleNotification(event) {
-            const value = event.target.value;
-            const data = new Uint8Array(value.buffer);
-            if (data[0] === 0x01) {
-                const payload = new TextDecoder().decode(data.slice(1));
-                console.log('Received:', payload);
-            }
-        }
-
-        async function sendCommand(command) {
-            if (!commandChar) {
-                console.error('Not connected to the hub.');
-                return;
-            }
-
-            // Format the command as in the Python script: 0x06 (stdin) + payload
-            const data = new TextEncoder().encode(command);
-            const buffer = new Uint8Array([0x06, ...data]);
-            await commandChar.writeValue(buffer);
-            console.log('Sent:', command);
-            //labelContainer.childNodes[maxPredictions + 2].innerHTML = "sent: " + command;
-        }
-
-        function scale(val, min, max, targetMin, targetMax) {
-            return Math.min(targetMax, Math.max(targetMin, Math.round(((val - min) / (max - min)) * (targetMax - targetMin) + targetMin)));
-        }
-
-        function dist(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        }
-
-        function testFwd(val) {
-            const x = val;
-            const y = 0;
-            const z = 0;
-
-            const yaw = 0;
-            const pitch = 0;
-            const roll = 0;
-
-            const mouthOpenness = 0;
-            const mouth = 0;
-
-            const leftEye = 0;
-            const leftEyeVal = 0;
-
-            const rightEye = 0;
-            const rightEyeVal = 0;
-
-            const smile = 0;
-
-            const visibility = 1;
-
-            const payload =
-                `${x.toString().padStart(2, '0')}` +
-                `${y.toString().padStart(2, '0')}` +
-                `${z.toString().padStart(2, '0')}` +
-                `${yaw.toString().padStart(2, '0')}` +
-                `${pitch.toString().padStart(2, '0')}` +
-                `${mouth.toString().padStart(2, '0')}` +
-                `${leftEyeVal.toString().padStart(2, '0')}` +
-                `${rightEyeVal.toString().padStart(2, '0')}` +
-                `${roll}` +
-                `${smile}` +
-                `${visibility}`;
-            sendCommand(payload);
-        }
-
-        function onResults(results) {
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(
-                results.image, 0, 0, canvasElement.width, canvasElement.height);
-            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                const x = 0;
-                const y = 0;
-                const z = 0;
-
-                const yaw = 0;
-                const pitch = 0;
-                const roll = 0;
-
-                const mouthOpenness = 0;
-                const mouth = 0;
-
-                const leftEye = 0;
-                const leftEyeVal = 0;
-
-                const rightEye = 0;
-                const rightEyeVal = 0;
-
-                const smile = 0;
-
-                const visibility = 0;
-
-                const payload =
-                    `${x.toString().padStart(2, '0')}` +
-                    `${y.toString().padStart(2, '0')}` +
-                    `${z.toString().padStart(2, '0')}` +
-                    `${yaw.toString().padStart(2, '0')}` +
-                    `${pitch.toString().padStart(2, '0')}` +
-                    `${mouth.toString().padStart(2, '0')}` +
-                    `${leftEyeVal.toString().padStart(2, '0')}` +
-                    `${rightEyeVal.toString().padStart(2, '0')}` +
-                    `${roll}` +
-                    `${smile}` +
-                    `${visibility}`;
-
-                // Display data on the page
-                document.getElementById('dataDisplay').innerText =
-                    `Payload: ${payload}\n` +
-                    `X:${x}, Y:${y}, Z:${z}, Yaw:${yaw}, Pitch:${pitch}, Roll:${roll}\n` +
-                    `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${smile}, Visibility:${visibility}`;
-
-                const now = Date.now();
-                if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
-                    sendCommand(payload);
-                    lastSentX = x;
-                    lastSentTime = now;
-                }
-                return;
-            }
-            if (results.multiFaceLandmarks) {
-                for (const landmarks of results.multiFaceLandmarks) {
-                    const nose = landmarks[1];
-                    const x = scale(nose.x, 0, 1, 0, 99);
-                    const y = scale(nose.y, 0, 1, 0, 99);
-                    const z = scale(-nose.z, 0, 0.5, 0, 99);
-
-                    const yaw = scale((landmarks[234].x - landmarks[454].x), -0.25, -0.15, 0, 99);
-                    const pitch = scale((landmarks[10].y - landmarks[152].y), -0.03, 0.03, 0, 99);
-                    const roll = scale((landmarks[33].y - landmarks[263].y), -0.1, 0.1, 0, 9);
-
-                    const mouthOpenness = dist(landmarks[13].x, landmarks[13].y, landmarks[14].x, landmarks[14].y);
-                    const mouth = scale(mouthOpenness, 0.01, 0.1, 0, 99);
-
-                    const leftEye = dist(landmarks[159].x, landmarks[159].y, landmarks[145].x, landmarks[145].y);
-                    const leftEyeVal = scale(leftEye, 0.01, 0.06, 0, 99);
-
-                    const rightEye = dist(landmarks[386].x, landmarks[386].y, landmarks[374].x, landmarks[374].y);
-                    const rightEyeVal = scale(rightEye, 0.01, 0.06, 0, 99);
-
-                    const smile = scale((landmarks[291].x - landmarks[61].x), 0.03, 0.15, 0, 9);
-
-                    const visibility = scale(results.faceLandmarks?.[0]?.visibility || 1, 0, 1, 0, 1);
-
-                    const payload =
-                        `${x.toString().padStart(2, '0')}` +
-                        `${y.toString().padStart(2, '0')}` +
-                        `${z.toString().padStart(2, '0')}` +
-                        `${yaw.toString().padStart(2, '0')}` +
-                        `${pitch.toString().padStart(2, '0')}` +
-                        `${mouth.toString().padStart(2, '0')}` +
-                        `${leftEyeVal.toString().padStart(2, '0')}` +
-                        `${rightEyeVal.toString().padStart(2, '0')}` +
-                        `${roll}` +
-                        `${smile}` +
-                        `${visibility}`;
-
-                    // Display data on the page
-                    document.getElementById('dataDisplay').innerText =
-                        `Payload: ${payload}\n` +
-                        `X:${x}, Y:${y}, Z:${z}, Yaw:${yaw}, Pitch:${landmarks[454].x}, Roll:${roll}\n` +
-                        `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${smile}, Visibility:${visibility}`;
-
-                    const now = Date.now();
-                    if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
-                        sendCommand(payload);
-                        lastSentX = x;
-                        lastSentTime = now;
-                    }
-
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION,
-                        { color: '#C0C0C070', lineWidth: 1 });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, { color: '#FF3030' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, { color: '#FF3030' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_IRIS, { color: '#1010FF' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, { color: '#30FF30' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYEBROW, { color: '#30FF30' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_IRIS, { color: '#1010FF' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, { color: '#00FFFF' });
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, { color: '#E0E0E0' });
-                }
-            }
-            canvasCtx.restore();
-        }
-
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: 1280, height: 720 }
-                });
-
-                videoElement.srcObject = stream;
-                await videoElement.play();
-
-                async function frameLoop() {
-                    await faceMesh.send({ image: videoElement });
-                    requestAnimationFrame(frameLoop);
-                }
-
-                frameLoop();
-            } catch (err) {
-                console.error("Camera start error:", err);
-                alert("Could not access camera. Please ensure permissions are granted and you're using HTTPS.");
-            }
-        }
-
-        document.getElementById('startBtn').addEventListener('click', startCamera);
-        document.getElementById('connectBtn').addEventListener('click', connectToHub);
-        document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
-        document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
-        document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
-
-        const faceMesh = new FaceMesh({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }
+    async function connectToHub() {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: HUB_NAME }],
+          optionalServices: [SERVICE_UUID]
         });
 
-        faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+        device.addEventListener('gattserverdisconnected', () => {
+          console.log("Hub disconnected.");
         });
 
-        faceMesh.onResults(onResults);
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        commandChar = await service.getCharacteristic(PYBRICKS_COMMAND_EVENT_CHAR_UUID);
 
-        //startSecondCamera();
-    </script>
+        await commandChar.startNotifications();
+        commandChar.addEventListener('characteristicvaluechanged', (event) => {
+          const value = new TextDecoder().decode(event.target.value.buffer.slice(1));
+          console.log("Received:", value);
+        });
+
+        console.log("Connected to SPIKE hub!");
+      } catch (error) {
+        console.error("Connection error:", error);
+      }
+    }
+
+    async function sendCommand(command) {
+      if (!commandChar) {
+        console.warn("Hub not connected.");
+        return;
+      }
+      const data = new TextEncoder().encode(command);
+      const buffer = new Uint8Array([0x06, ...data]);
+      await commandChar.writeValue(buffer);
+      console.log("Sent:", command);
+    }
+
+    function scale(val, min, max, targetMin, targetMax) {
+      return Math.min(targetMax, Math.max(targetMin, Math.round(((val - min) / (max - min)) * (targetMax - targetMin) + targetMin)));
+    }
+
+    function dist(x1, y1, x2, y2) {
+      return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    }
+
+    function testFwd(val) {
+      const payload =
+        `${val.toString().padStart(2, '0')}` +
+        `0000000000001`;
+      sendCommand(payload);
+    }
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      let payload = `0000000000000`;
+      let visibility = 0;
+
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const landmarks = results.multiFaceLandmarks[0];
+        const nose = landmarks[1];
+        const x = scale(nose.x, 0, 1, 0, 99);
+        const y = scale(nose.y, 0, 1, 0, 99);
+        const z = scale(-nose.z, 0, 0.5, 0, 99);
+        const yaw = scale((landmarks[234].x - landmarks[454].x), -0.25, -0.15, 0, 99);
+        const pitch = scale((landmarks[10].y - landmarks[152].y), -0.03, 0.03, 0, 99);
+        const roll = scale((landmarks[33].y - landmarks[263].y), -0.1, 0.1, 0, 9);
+        const mouth = scale(dist(landmarks[13].x, landmarks[13].y, landmarks[14].x, landmarks[14].y), 0.01, 0.1, 0, 99);
+        const leftEyeVal = scale(dist(landmarks[159].x, landmarks[159].y, landmarks[145].x, landmarks[145].y), 0.01, 0.06, 0, 99);
+        const rightEyeVal = scale(dist(landmarks[386].x, landmarks[386].y, landmarks[374].x, landmarks[374].y), 0.01, 0.06, 0, 99);
+        const smile = scale((landmarks[291].x - landmarks[61].x), 0.03, 0.15, 0, 9);
+        visibility = 1;
+
+        payload =
+          `${x.toString().padStart(2, '0')}` +
+          `${y.toString().padStart(2, '0')}` +
+          `${z.toString().padStart(2, '0')}` +
+          `${yaw.toString().padStart(2, '0')}` +
+          `${pitch.toString().padStart(2, '0')}` +
+          `${mouth.toString().padStart(2, '0')}` +
+          `${leftEyeVal.toString().padStart(2, '0')}` +
+          `${rightEyeVal.toString().padStart(2, '0')}` +
+          `${roll}${smile}${visibility}`;
+
+        drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, { color: '#C0C0C070', lineWidth: 1 });
+        drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, { color: '#00FFFF' });
+        drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, { color: '#E0E0E0' });
+      }
+
+      document.getElementById('dataDisplay').innerText = `Payload: ${payload}`;
+
+      const now = Date.now();
+      if ((now - lastSentTime) > SEND_INTERVAL_MS && payload.slice(0, 2) !== lastSentX) {
+        sendCommand(payload);
+        lastSentX = payload.slice(0, 2);
+        lastSentTime = now;
+      }
+
+      canvasCtx.restore();
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: 1280, height: 720 }
+        });
+        videoElement.srcObject = stream;
+        await videoElement.play();
+
+        const frameLoop = async () => {
+          await faceMesh.send({ image: videoElement });
+          requestAnimationFrame(frameLoop);
+        };
+        frameLoop();
+      } catch (err) {
+        console.error("Camera error:", err);
+        alert("Camera access denied or not available.");
+      }
+    }
+
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    faceMesh.onResults(onResults);
+
+    // Button events
+    document.getElementById('startBtn').addEventListener('click', startCamera);
+    document.getElementById('connectBtn').addEventListener('click', connectToHub);
+    document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
+    document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
+    document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
+  </script>
 </body>
 </html>
