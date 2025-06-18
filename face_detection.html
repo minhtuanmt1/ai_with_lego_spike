@@ -79,6 +79,42 @@
     button:active {
       background-color: #0056b3;
     }
+
+    #dataDisplay {
+      width: 480px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-family: monospace;
+      font-size: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .bar-group {
+      display: flex;
+      align-items: center;
+      margin: 4px 0;
+    }
+    
+    .bar-group label {
+      width: 60px;
+    }
+    
+    .bar-container {
+      flex: 1;
+      height: 12px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .bar {
+      height: 100%;
+      background: #00ff99;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
   </style>
 </head>
 
@@ -96,6 +132,42 @@
     <button id="fwdBtn">Forward</button>
     <button id="revBtn">Reverse</button>
     <button id="stopBtn">Stop</button>
+  </div>
+
+  <div id="dataDisplay">
+  <div class="bar-group">
+    <label>X</label><div class="bar-container"><div class="bar" id="barX"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Y</label><div class="bar-container"><div class="bar" id="barY"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Z</label><div class="bar-container"><div class="bar" id="barZ"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Yaw</label><div class="bar-container"><div class="bar" id="barYaw"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Pitch</label><div class="bar-container"><div class="bar" id="barPitch"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Roll</label><div class="bar-container"><div class="bar" id="barRoll"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Mouth</label><div class="bar-container"><div class="bar" id="barMouth"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>EyeL</label><div class="bar-container"><div class="bar" id="barEyeL"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>EyeR</label><div class="bar-container"><div class="bar" id="barEyeR"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Smile</label><div class="bar-container"><div class="bar" id="barSmile"></div></div>
+  </div>
+  <div class="bar-group">
+    <label>Visible</label><div class="bar-container"><div class="bar" id="barVisible"></div></div>
+  </div>
   </div>
 
   <script type="module">
@@ -210,6 +282,18 @@
                     `Payload: ${payload}\n` +
                     `X:${x}, Y:${y}, Z:${z}, Yaw:${yaw}, Pitch:${pitch}, Roll:${roll}\n` +
                     `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${smile}, Visibility:${visibility}`;
+              
+                document.getElementById('barX').style.width = `${x}%`;
+                document.getElementById('barY').style.width = `${y}%`;
+                document.getElementById('barZ').style.width = `${z}%`;
+                document.getElementById('barYaw').style.width = `${yaw}%`;
+                document.getElementById('barPitch').style.width = `${pitch}%`;
+                document.getElementById('barRoll').style.width = `${(roll / 9) * 100}%`;
+                document.getElementById('barMouth').style.width = `${mouth}%`;
+                document.getElementById('barEyeL').style.width = `${leftEyeVal}%`;
+                document.getElementById('barEyeR').style.width = `${rightEyeVal}%`;
+                document.getElementById('barSmile').style.width = `${(smile / 9) * 100}%`; // smile is 0-9
+                document.getElementById('barVisible').style.width = `${(visibility / 1) * 100}%`; // visibility is 0-1
 
                 const now = Date.now();
                 if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
@@ -261,6 +345,18 @@
                         `Payload: ${payload}\n` +
                         `X:${x}, Y:${y}, Z:${z}, Yaw:${yaw}, Pitch:${landmarks[454].x}, Roll:${roll}\n` +
                         `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${smile}, Visibility:${visibility}`;
+
+                    document.getElementById('barX').style.width = `${x}%`;
+                    document.getElementById('barY').style.width = `${y}%`;
+                    document.getElementById('barZ').style.width = `${z}%`;
+                    document.getElementById('barYaw').style.width = `${yaw}%`;
+                    document.getElementById('barPitch').style.width = `${pitch}%`;
+                    document.getElementById('barRoll').style.width = `${(roll / 9) * 100}%`;
+                    document.getElementById('barMouth').style.width = `${mouth}%`;
+                    document.getElementById('barEyeL').style.width = `${leftEyeVal}%`;
+                    document.getElementById('barEyeR').style.width = `${rightEyeVal}%`;
+                    document.getElementById('barSmile').style.width = `${(smile / 9) * 100}%`; // smile is 0-9
+                    document.getElementById('barVisible').style.width = `${(visibility / 1) * 100}%`; // visibility is 0-1
 
                     const now = Date.now();
                     if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
