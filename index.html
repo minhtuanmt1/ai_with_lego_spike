@@ -1,179 +1,169 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white; /* optional */
-        }
+  <meta charset="utf-8">
+  <title>Face Detection with SPIKE</title>
 
-        .container {
-            position: relative;
-            width: 1280px;
-            height: 720px;
-        }
+  <!-- Mediapipe Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
-        video, canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
 
-        .input_video {
-            display: none;
-        }
+    .container {
+      position: relative;
+      width: 480px;
+      height: 480px;
+    }
 
-        #dataDisplay {
-            width: 600px; /* Fixed width */
-            height: 100px; /* Optional fixed height */
-            margin-top: 12px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            font-family: monospace;
-            font-size: 20px;
-            border-radius: 8px;
-            z-index: 1;
-            /* Center horizontally */
-            position: relative;
-        }
-    </style>
+    video, canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 480px;
+      height: 480px;
+    }
+
+    canvas {
+      pointer-events: none; /* allows clicks to pass through */
+    }
+
+    .input_video {
+      display: none;
+    }
+
+    #dataDisplay {
+      width: 90%;
+      max-width: 600px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      font-family: monospace;
+      font-size: 16px;
+      border-radius: 8px;
+      margin: 12px auto;
+      text-align: left;
+    }
+
+    .controls {
+      margin: 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    button {
+      font-size: 16px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:active {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container">
-        <video class="input_video" autoplay muted playsinline></video>
-        <canvas class="output_canvas" width="1280" height="720"></canvas>
-    </div>
-    <div id="dataDisplay">Awaiting data...</div>
+  <div class="container">
+    <video class="input_video" autoplay muted playsinline width="480" height="480"></video>
+    <canvas class="output_canvas" width="480" height="480"></canvas>
+  </div>
+
+  <div id="dataDisplay">Awaiting data...</div>
+
+  <div class="controls">
+    <button id="startBtn">Start Camera</button>
     <button id="connectBtn">Connect to SPIKE Hub</button>
     <button id="fwdBtn">Forward</button>
     <button id="revBtn">Reverse</button>
     <button id="stopBtn">Stop</button>
-    <script type="module">
-        const videoElement = document.querySelector('.input_video');
-        const canvasElement = document.querySelector('.output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const PYBRICKS_COMMAND_EVENT_CHAR_UUID = 'c5f50002-8280-46da-89f4-6d8051e4aeef';
-        const SERVICE_UUID = 'c5f50001-8280-46da-89f4-6d8051e4aeef';
-        const HUB_NAME = 'young_engineer';
-        let device;
-        let server;
-        let commandChar;
-        let lastSentX = null;
-        let lastSentTime = 0;
-        const SEND_INTERVAL_MS = 200;
+  </div>
 
-        async function connectToHub() {
-            try {
-                console.log('Requesting LEGO SPIKE hub...');
+  <script type="module">
+    const videoElement = document.querySelector('.input_video');
+    const canvasElement = document.querySelector('.output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
 
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: HUB_NAME }],
-                    optionalServices: [SERVICE_UUID]
-                });
+    const HUB_NAME = 'young_engineer';
+    const SERVICE_UUID = 'c5f50001-8280-46da-89f4-6d8051e4aeef';
+    const PYBRICKS_COMMAND_EVENT_CHAR_UUID = 'c5f50002-8280-46da-89f4-6d8051e4aeef';
 
-                device.addEventListener('gattserverdisconnected', onDisconnected);
+    let device, server, commandChar;
+    let lastSentX = null;
+    let lastSentTime = 0;
+    const SEND_INTERVAL_MS = 200;
 
-                server = await device.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                commandChar = await service.getCharacteristic(PYBRICKS_COMMAND_EVENT_CHAR_UUID);
+    async function connectToHub() {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: HUB_NAME }],
+          optionalServices: [SERVICE_UUID]
+        });
 
-                console.log('Connected to hub!');
-                //labelContainer.childNodes[maxPredictions + 1].innerHTML = "Connected with SPIKE Hub via bluetooth";
+        device.addEventListener('gattserverdisconnected', () => {
+          console.log("Hub disconnected.");
+        });
 
-                // Start notifications (optional, if expecting hub responses)
-                await commandChar.startNotifications();
-                commandChar.addEventListener('characteristicvaluechanged', handleNotification);
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        commandChar = await service.getCharacteristic(PYBRICKS_COMMAND_EVENT_CHAR_UUID);
 
-            } catch (error) {
-                console.error('Error connecting to hub:', error);
-                //labelContainer.childNodes[maxPredictions + 1].innerHTML = "Connect failed" + error;
-            }
-        }
+        await commandChar.startNotifications();
+        commandChar.addEventListener('characteristicvaluechanged', (event) => {
+          const value = new TextDecoder().decode(event.target.value.buffer.slice(1));
+          console.log("Received:", value);
+        });
 
-        function onDisconnected() {
-            console.log('Hub was disconnected.');
-            //labelContainer.childNodes[maxPredictions + 1].innerHTML = "SPIKE Hub disconnected";
-        }
+        console.log("Connected to SPIKE hub!");
+      } catch (error) {
+        console.error("Connection error:", error);
+      }
+    }
 
-        function handleNotification(event) {
-            const value = event.target.value;
-            const data = new Uint8Array(value.buffer);
-            if (data[0] === 0x01) {
-                const payload = new TextDecoder().decode(data.slice(1));
-                console.log('Received:', payload);
-            }
-        }
+    async function sendCommand(command) {
+      if (!commandChar) {
+        console.warn("Hub not connected.");
+        return;
+      }
+      const data = new TextEncoder().encode(command);
+      const buffer = new Uint8Array([0x06, ...data]);
+      await commandChar.writeValue(buffer);
+      console.log("Sent:", command);
+    }
 
-        async function sendCommand(command) {
-            if (!commandChar) {
-                console.error('Not connected to the hub.');
-                return;
-            }
+    function scale(val, min, max, targetMin, targetMax) {
+      return Math.min(targetMax, Math.max(targetMin, Math.round(((val - min) / (max - min)) * (targetMax - targetMin) + targetMin)));
+    }
 
-            // Format the command as in the Python script: 0x06 (stdin) + payload
-            const data = new TextEncoder().encode(command);
-            const buffer = new Uint8Array([0x06, ...data]);
-            await commandChar.writeValue(buffer);
-            console.log('Sent:', command);
-            //labelContainer.childNodes[maxPredictions + 2].innerHTML = "sent: " + command;
-        }
+    function dist(x1, y1, x2, y2) {
+      return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    }
 
-        function scale(val, min, max, targetMin, targetMax) {
-            return Math.min(targetMax, Math.max(targetMin, Math.round(((val - min) / (max - min)) * (targetMax - targetMin) + targetMin)));
-        }
-
-        function dist(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        }
-
-        function testFwd(val)
-        {
-            const x = val;
-            const y = 0;
-            const z = 0;
-
-            const yaw = 0;
-            const pitch = 0;
-            const roll = 0;
-
-            const mouthOpenness = 0;
-            const mouth = 0;
-
-            const leftEye = 0;
-            const leftEyeVal = 0;
-
-            const rightEye = 0;
-            const rightEyeVal = 0;
-
-            const smile = 0;
-
-            const visibility = 1;
-
-            const payload =
-                `${x.toString().padStart(2, '0')}` +
-                `${y.toString().padStart(2, '0')}` +
-                `${z.toString().padStart(2, '0')}` +
-                `${yaw.toString().padStart(2, '0')}` +
-                `${pitch.toString().padStart(2, '0')}` +
-                `${mouth.toString().padStart(2, '0')}` +
-                `${leftEyeVal.toString().padStart(2, '0')}` +
-                `${rightEyeVal.toString().padStart(2, '0')}` +
-                `${roll}` +
-                `${smile}` +
-                `${visibility}`;
-            sendCommand(payload);
-        }
+    function testFwd(val) {
+      const payload =
+        `${val.toString().padStart(2, '0')}` +
+        `0000000000001`;
+      sendCommand(payload);
+    }
 
         function onResults(results) {
             canvasCtx.save();
@@ -294,44 +284,44 @@
             canvasCtx.restore();
         }
 
-        document.getElementById('connectBtn').addEventListener('click', connectToHub);
-        document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
-        document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
-        document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
-
-        const faceMesh = new FaceMesh({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } }
         });
+        videoElement.srcObject = stream;
+        await videoElement.play();
 
-        faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        const frameLoop = async () => {
+          await faceMesh.send({ image: videoElement });
+          requestAnimationFrame(frameLoop);
+        };
+        frameLoop();
+      } catch (err) {
+        console.error("Camera error:", err);
+        alert("Camera access denied or not available.");
+      }
+    }
 
-        faceMesh.onResults(onResults);
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
 
-        startSecondCamera();
-		async function startCamera() {
-			const stream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode: 'user', width: 1280, height: 720 }
-			});
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
 
-			videoElement.srcObject = stream;
-			await videoElement.play();
+    faceMesh.onResults(onResults);
 
-			async function frameLoop() {
-				await faceMesh.send({ image: videoElement });
-				requestAnimationFrame(frameLoop);
-			}
-
-			frameLoop();
-		}
-
-		startCamera();
-    </script>
+    // Button events
+    document.getElementById('startBtn').addEventListener('click', startCamera);
+    document.getElementById('connectBtn').addEventListener('click', connectToHub);
+    document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
+    document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
+    document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
+  </script>
 </body>
 </html>
