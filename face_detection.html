@@ -343,8 +343,8 @@
                     // Display data on the page
                     document.getElementById('dataDisplay').innerText =
                         `Payload: ${payload}\n` +
-                        `X:${x}, Y:${y}, Z:${z}, Yaw:${yaw}, Pitch:${pitch}, Roll:${roll}\n` +
-                        `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${smile}, Visibility:${visibility}`;
+                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${yaw}, Pitch:${(landmarks[10].y - landmarks[152].y}, Roll:${roll}\n` +
+                        `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${(landmarks[291].x - landmarks[61].x}, Visibility:${visibility}`;
 
                     document.getElementById('barX').style.width = `${x}%`;
                     document.getElementById('barY').style.width = `${y}%`;
