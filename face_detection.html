@@ -294,33 +294,28 @@
             canvasCtx.restore();
         }
 
-        async function startSecondCamera() {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cams = devices.filter(d => d.kind === 'videoinput');
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user", width: 1280, height: 720 }
+                });
 
-            if (cams.length < 2) {
-                console.warn('Less than 2 cameras available. Defaulting to first.');
+                videoElement.srcObject = stream;
+                await videoElement.play();
+
+                async function frameLoop() {
+                    await faceMesh.send({ image: videoElement });
+                    requestAnimationFrame(frameLoop);
+                }
+
+                frameLoop();
+            } catch (err) {
+                console.error("Camera start error:", err);
+                alert("Could not access camera. Please ensure permissions are granted and you're using HTTPS.");
             }
-
-            const deviceId = cams[0]?.deviceId || cams[1].deviceId;
-
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { deviceId: { exact: deviceId }, width: 1280, height: 720 }
-            });
-
-            videoElement.srcObject = stream;
-
-            await videoElement.play();
-
-            async function frameLoop() {
-                await faceMesh.send({ image: videoElement });
-                requestAnimationFrame(frameLoop);
-            }
-
-            frameLoop();
         }
 
-        document.getElementById('startBtn').addEventListener('click', startSecondCamera);
+        document.getElementById('startBtn').addEventListener('click', startCamera);
         document.getElementById('connectBtn').addEventListener('click', connectToHub);
         document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
         document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
