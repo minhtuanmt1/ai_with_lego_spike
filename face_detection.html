@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -55,6 +55,7 @@
         <canvas class="output_canvas" width="1280" height="720"></canvas>
     </div>
     <div id="dataDisplay">Awaiting data...</div>
+    <button id="startBtn">Start Camera</button>
     <button id="connectBtn">Connect to SPIKE Hub</button>
     <button id="fwdBtn">Forward</button>
     <button id="revBtn">Reverse</button>
@@ -137,8 +138,7 @@
             return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         }
 
-        function testFwd(val)
-        {
+        function testFwd(val) {
             const x = val;
             const y = 0;
             const z = 0;
@@ -294,26 +294,6 @@
             canvasCtx.restore();
         }
 
-        document.getElementById('connectBtn').addEventListener('click', connectToHub);
-        document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
-        document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
-        document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
-
-        const faceMesh = new FaceMesh({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }
-        });
-
-        faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
-        faceMesh.onResults(onResults);
-
         async function startSecondCamera() {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const cams = devices.filter(d => d.kind === 'videoinput');
@@ -340,7 +320,28 @@
             frameLoop();
         }
 
-        startSecondCamera();
+        document.getElementById('startBtn').addEventListener('click', startSecondCamera);
+        document.getElementById('connectBtn').addEventListener('click', connectToHub);
+        document.getElementById('fwdBtn').addEventListener('click', () => testFwd(70));
+        document.getElementById('revBtn').addEventListener('click', () => testFwd(30));
+        document.getElementById('stopBtn').addEventListener('click', () => testFwd(50));
+
+        const faceMesh = new FaceMesh({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+            }
+        });
+
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onResults);
+
+        //startSecondCamera();
     </script>
 </body>
 </html>
