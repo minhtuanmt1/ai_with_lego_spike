@@ -168,6 +168,9 @@
   <div class="bar-group">
     <label>Visible</label><div class="bar-container"><div class="bar" id="barVisible"></div></div>
   </div>
+  <div class="bar-group">
+    <label>EyeMove</label><div class="bar-container"><div class="bar" id="bareyemove"></div></div>
+  </div>
   </div>
 
   <script type="module">
@@ -263,6 +266,7 @@
                 const smile = 0;
 
                 const visibility = 0;
+                const eyemove = 0;
 
                 const payload =
                     `${x.toString().padStart(2, '0')}` +
@@ -294,6 +298,7 @@
                 document.getElementById('barEyeR').style.width = `${rightEyeVal}%`;
                 document.getElementById('barSmile').style.width = `${(smile / 9) * 100}%`; // smile is 0-9
                 document.getElementById('barVisible').style.width = `${(visibility / 1) * 100}%`; // visibility is 0-1
+                document.getElementById('bareyemove').style.width = `${(eyemove / 9) * 100}%`; // eyemove is 0-9
 
                 const now = Date.now();
                 if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
@@ -326,6 +331,12 @@
                     const smile = scale((landmarks[291].x - landmarks[61].x), 0.1388, 0.1816, 0, 9);
 
                     const visibility = scale(results.faceLandmarks?.[0]?.visibility || 1, 0, 1, 0, 1);
+                    const leftEyeLeft = landmarks[33].x;
+                    const leftEyeRight = landmarks[133].x;
+                    const leftIrisX = landmarks[468].x;
+
+                    const normLeftGaze = (leftIrisX - leftEyeLeft) / (leftEyeRight - leftEyeLeft);
+                    const eyemove = scale(normLeftGaze, 0.0, 1.0, 0, 9);
 
                     const payload =
                         `${x.toString().padStart(2, '0')}` +
@@ -357,6 +368,7 @@
                     document.getElementById('barEyeR').style.width = `${rightEyeVal}%`;
                     document.getElementById('barSmile').style.width = `${(smile / 9) * 100}%`; // smile is 0-9
                     document.getElementById('barVisible').style.width = `${(visibility / 1) * 100}%`; // visibility is 0-1
+                    document.getElementById('bareyemove').style.width = `${(eyemove / 9) * 100}%`; // eyemove is 0-9
 
                     const now = Date.now();
                     if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
