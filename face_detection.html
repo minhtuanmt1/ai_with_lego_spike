@@ -310,7 +310,7 @@
                     const y = scale(nose.y, 0, 1, 0, 99);
                     const z = scale(-nose.z, 0.275, 0.048, 0, 99);
 
-                    const yaw = scale((landmarks[234].x - landmarks[454].x), -0.25, -0.15, 0, 99);
+                    const yaw = scale((landmarks[234].x - landmarks[454].x), -0.3056, -0.2115, 0, 99);
                     const pitch = scale((landmarks[10].y - landmarks[152].y), -0.539, -0.306, 0, 99);
                     const roll = scale((landmarks[33].y - landmarks[263].y), -0.1, 0.1, 0, 9);
 
@@ -323,7 +323,7 @@
                     const rightEye = dist(landmarks[386].x, landmarks[386].y, landmarks[374].x, landmarks[374].y);
                     const rightEyeVal = scale(rightEye, 0.01, 0.06, 0, 99);
 
-                    const smile = scale((landmarks[291].x - landmarks[61].x), 0.206, 0.292, 0, 9);
+                    const smile = scale((landmarks[291].x - landmarks[61].x), 0.1388, 0.1816, 0, 9);
 
                     const visibility = scale(results.faceLandmarks?.[0]?.visibility || 1, 0, 1, 0, 1);
 
