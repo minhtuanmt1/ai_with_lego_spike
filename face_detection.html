@@ -311,11 +311,14 @@
             if (results.multiFaceLandmarks) {
                 for (const landmarks of results.multiFaceLandmarks) {
                     const nose = landmarks[1];
+                    const leftCheekX = landmarks[234].x;
+                    const rightCheekX = landmarks[454].x;
+                    const noseX = landmarks[1].x;
                     const x = scale(nose.x, 0, 1, 0, 99);
                     const y = scale(nose.y, 0, 1, 0, 99);
                     const z = scale(-nose.z, 0.275, 0.048, 0, 99);
 
-                    const yaw = scale((landmarks[234].x - landmarks[454].x), -0.3056, -0.2115, 0, 99);
+                    const yaw = scale(((noseX - leftCheekX) / (rightCheekX - leftCheekX)), -0.5, 1.5, 0, 99);
                     const pitch = scale((landmarks[10].y - landmarks[152].y), -0.539, -0.306, 0, 99);
                     const roll = scale((landmarks[33].y - landmarks[263].y), -0.1, 0.1, 0, 9);
 
@@ -338,12 +341,6 @@
                     const normLeftGaze = (leftIrisX - leftEyeLeft) / (leftEyeRight - leftEyeLeft);
                     const eyemove = scale(normLeftGaze, 0.0, 1.0, 0, 9);
 
-                    const leftCheekX = landmarks[234].x;
-                    const rightCheekX = landmarks[454].x;
-                    const noseX = landmarks[1].x;
-                    
-                    const normNose = (noseX - leftCheekX) / (rightCheekX - leftCheekX);
-
                     const payload =
                         `${x.toString().padStart(2, '0')}` +
                         `${y.toString().padStart(2, '0')}` +
@@ -360,7 +357,7 @@
                     // Display data on the page
                     document.getElementById('dataDisplay').innerText =
                         `Payload: ${payload}\n` +
-                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${normNose}, Pitch:${(landmarks[10].y - landmarks[152].y)}, Roll:${roll}\n` +
+                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${yaw}, Pitch:${(landmarks[10].y - landmarks[152].y)}, Roll:${roll}\n` +
                         `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${(landmarks[291].x - landmarks[61].x)}, Visibility:${visibility}`;
 
                     document.getElementById('barX').style.width = `${x}%`;
