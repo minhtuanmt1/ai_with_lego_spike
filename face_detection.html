@@ -314,6 +314,9 @@
                     const leftCheekX = landmarks[234].x;
                     const rightCheekX = landmarks[454].x;
                     const noseX = landmarks[1].x;
+                    const foreheadY = landmarks[10].y;
+                    const chinY = landmarks[152].y;
+                    const noseY = landmarks[1].y;
                     const x = scale(nose.x, 0, 1, 0, 99);
                     const y = scale(nose.y, 0, 1, 0, 99);
                     const z = scale(-nose.z, 0.275, 0.048, 0, 99);
@@ -357,7 +360,7 @@
                     // Display data on the page
                     document.getElementById('dataDisplay').innerText =
                         `Payload: ${payload}\n` +
-                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${yaw}, Pitch:${(landmarks[10].y - landmarks[152].y)}, Roll:${roll}\n` +
+                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${yaw}, Pitch:${((noseY - foreheadY) / (chinY - foreheadY))}, Roll:${roll}\n` +
                         `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${(landmarks[291].x - landmarks[61].x)}, Visibility:${visibility}`;
 
                     document.getElementById('barX').style.width = `${x}%`;
