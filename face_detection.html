@@ -377,9 +377,9 @@
                     document.getElementById('bareyemove').style.width = `${(eyemove / 9) * 100}%`; // eyemove is 0-9
 
                     const now = Date.now();
-                    if (x !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
+                    if (yaw !== lastSentX && (now - lastSentTime) >= SEND_INTERVAL_MS) {
                         sendCommand(payload);
-                        lastSentX = x;
+                        lastSentX = yaw;
                         lastSentTime = now;
                     }
 
