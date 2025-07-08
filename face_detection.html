@@ -338,6 +338,12 @@
                     const normLeftGaze = (leftIrisX - leftEyeLeft) / (leftEyeRight - leftEyeLeft);
                     const eyemove = scale(normLeftGaze, 0.0, 1.0, 0, 9);
 
+                    const leftCheekX = landmarks[234].x;
+                    const rightCheekX = landmarks[454].x;
+                    const noseX = landmarks[1].x;
+                    
+                    const normNose = (noseX - leftCheekX) / (rightCheekX - leftCheekX);
+
                     const payload =
                         `${x.toString().padStart(2, '0')}` +
                         `${y.toString().padStart(2, '0')}` +
@@ -354,7 +360,7 @@
                     // Display data on the page
                     document.getElementById('dataDisplay').innerText =
                         `Payload: ${payload}\n` +
-                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${(landmarks[234].x - landmarks[454].x)}, Pitch:${(landmarks[10].y - landmarks[152].y)}, Roll:${roll}\n` +
+                        `X:${x}, Y:${y}, Z:${-nose.z}, Yaw:${normNose}, Pitch:${(landmarks[10].y - landmarks[152].y)}, Roll:${roll}\n` +
                         `Mouth:${mouth}, EyeL:${leftEyeVal}, EyeR:${rightEyeVal}, Smile:${(landmarks[291].x - landmarks[61].x)}, Visibility:${visibility}`;
 
                     document.getElementById('barX').style.width = `${x}%`;
